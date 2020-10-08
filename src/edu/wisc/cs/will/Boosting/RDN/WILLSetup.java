@@ -96,7 +96,7 @@ public final class WILLSetup {
 	public boolean useMLNs					= false;
 	public boolean learnClauses				= false;
 	private boolean errorIfNoExamples       = false;
-        public boolean GroundedRelationalRW2    = false; //Added By Navdeep Kaur
+	public boolean GroundedRelationalRW2    = false; //Added By Navdeep Kaur
 	
 	/**
 	 * Cached list of predicate and arities for neighboring facts
@@ -1827,6 +1827,24 @@ public final class WILLSetup {
 	 */
 	public MultiClassExampleHandler getMulticlassHandler() {
 		return multiclassHandler;
+	}
+
+	//Read transfer file
+	private Transfer getTransfer(String filePath) {
+		Transfer transfer = new Transfer();
+		try {
+			BufferedReader reader = new BufferedReader(new CondorFileReader(filePath));
+			String line = null;
+			while((line = reader.readLine()) != null) {
+				transfer.readLine(line);
+			}
+		}catch (FileNotFoundException ex){
+			//System.out.println(ex);
+		}
+		catch (IOException ex){
+			//System.out.println(ex);
+		}
+		return transfer;
 	}
 
 }
