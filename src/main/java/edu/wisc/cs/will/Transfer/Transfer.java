@@ -34,8 +34,8 @@ public class Transfer {
         String str = line.replaceAll("\\s+", "");
         Pattern paramPattern = Pattern.compile("^setParam:(\\w*)=(\\w*)\\.$");
         //Pattern.compile("^(source|target):(\\w*)\\(([\\w,]*)\\)\\.$");
-        Pattern predPattern = Pattern.compile("^(\\w*\\([\\w,]*\\)):([\\w \\([\\w,]*\\),]*)\\.$");
-        Pattern mapPattern = Pattern.compile("^setMap:(\\w*),(\\w*)\\.$");
+        Pattern predPattern = Pattern.compile("^(\\w+\\([\\w,]+\\)): *((?:[\\w ]+\\([\\w,]+\\),*)+)$");
+        Pattern mapPattern = Pattern.compile("^setMap:(\\w+\\([\\w,]+\\)),(\\w+\\([\\w,]+\\))$");
         Matcher paramMatcher = paramPattern.matcher(str);
         Matcher predMatcher = predPattern.matcher(str);
         Matcher mapMatcher = mapPattern.matcher(str);
@@ -50,27 +50,27 @@ public class Transfer {
                 allowSameTargetMap = Boolean.parseBoolean(paramMatcher.group(2));
             }
         } else if (predMatcher.find()) {
-            Pattern targetPattern = Pattern.compile("(\\w*)\\(([\\w,]*)\\)");
-            Matcher targetMatcher = null;
+            Pattern argsPattern = Pattern.compile("^(\\w+)\\((.*?)\\)$"); //Get the relation name and its literals
+            Matcher argstMatcher = null;
             List<String> allPreds = Arrays.asList(predMatcher.group(2).split(",(?![^()]*\\))"));
             ArrayList<Mapping> predsMap = new ArrayList<Mapping>();
             for(int i = 0; i < allPreds.size(); i++){
-                targetMatcher = targetPattern.matcher(allPreds.get(i));
-                predsMap.add(new Mapping(targetMatcher.group(1), new ArrayList<String>(Arrays.asList(targetMatcher.group(2).split(",")))));
+                String currentTarget = allPreds.get(i);
+                argstMatcher = argsPattern.matcher(currentTarget);
+                if(argstMatcher.find()) {
+                    predsMap.add(new Mapping(argstMatcher.group(1), new ArrayList<String>(Arrays.asList(argstMatcher.group(2).split(",")))));
+                }
             }
             map.put(predMatcher.group(1), predsMap);
         } else if (mapMatcher.find()) {
             String srcPred = mapMatcher.group(1);
             String tarPred = mapMatcher.group(2);
-
             ArrayList<String> tarArgs = new ArrayList<String>(Arrays.asList(tarPred.replace("(", "").replace(")", "").split(",")));
-
             map.put(srcPred, new ArrayList<Mapping>(Arrays.asList(new Mapping(tarPred, tarArgs))));
             if (targetHead == null) {
                 predsMapped.put(tarPred, new Mapping(tarPred, tarArgs));
                 targetHead = tarPred;
             }
-
         } else if(!str.startsWith("//") && !str.isEmpty()) {
             Utils.println("\nEncountered an exception during parsing '" + str + "' of transfer file:");
             Utils.error("Unable to successfully parse transfer file: " + str + ".");
