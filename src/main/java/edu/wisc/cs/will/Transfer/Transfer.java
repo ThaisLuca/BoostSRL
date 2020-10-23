@@ -35,7 +35,7 @@ public class Transfer {
         Pattern paramPattern = Pattern.compile("^setParam:(\\w*)=(\\w*)\\.$");
         //Pattern.compile("^(source|target):(\\w*)\\(([\\w,]*)\\)\\.$");
         Pattern predPattern = Pattern.compile("^(\\w+\\([\\w,]+\\)): *((?:[\\w ]+\\([\\w,]+\\),*)+)$");
-        Pattern mapPattern = Pattern.compile("^setMap:(\\w+\\([\\w,]+\\)),(\\w+\\([\\w,]+\\))$");
+        Pattern mapPattern = Pattern.compile("^setMap:(\\w+\\([\\w,]+\\)),(\\w+\\([\\w,]+\\))");
         Matcher paramMatcher = paramPattern.matcher(str);
         Matcher predMatcher = predPattern.matcher(str);
         Matcher mapMatcher = mapPattern.matcher(str);
@@ -50,7 +50,7 @@ public class Transfer {
                 allowSameTargetMap = Boolean.parseBoolean(paramMatcher.group(2));
             }
         } else if (predMatcher.find()) {
-            Pattern argsPattern = Pattern.compile("^(\\w+)\\((.*?)\\)$"); //Get the relation name and its literals
+            Pattern argsPattern = Pattern.compile("(\\w+)\\((.*?)\\)"); //Get the relation name and its literals
             Matcher argstMatcher = null;
             List<String> allPreds = Arrays.asList(predMatcher.group(2).split(",(?![^()]*\\))"));
             ArrayList<Mapping> predsMap = new ArrayList<Mapping>();
@@ -61,15 +61,16 @@ public class Transfer {
                     predsMap.add(new Mapping(argstMatcher.group(1), new ArrayList<String>(Arrays.asList(argstMatcher.group(2).split(",")))));
                 }
             }
-            map.put(predMatcher.group(1), predsMap);
+            map.put(predMatcher.group(1).replaceAll("\\(.*\\)", ""), predsMap);
         } else if (mapMatcher.find()) {
-            String srcPred = mapMatcher.group(1);
+            String srcPred = mapMatcher.group(1).replaceAll("\\(.*\\)", "");
             String tarPred = mapMatcher.group(2);
-            ArrayList<String> tarArgs = new ArrayList<String>(Arrays.asList(tarPred.replace("(", "").replace(")", "").split(",")));
+            ArrayList<String> tarArgs = new ArrayList<String>(Arrays.asList(tarPred.split("[\\(\\)]")[1].split(",")));
+            tarPred = tarPred.replaceAll("\\(.*\\)", "");
             map.put(srcPred, new ArrayList<Mapping>(Arrays.asList(new Mapping(tarPred, tarArgs))));
             if (targetHead == null) {
                 predsMapped.put(tarPred, new Mapping(tarPred, tarArgs));
-                targetHead = tarPred;
+                setTargetHead(tarPred);
             }
         } else if(!str.startsWith("//") && !str.isEmpty()) {
             Utils.println("\nEncountered an exception during parsing '" + str + "' of transfer file:");
@@ -90,23 +91,24 @@ public class Transfer {
         ArrayList<String> vars;
         ArrayList<String> toMap;
         ArrayList<String> args;
-        Mapping mapped = null;
+        Mapping mapped;
         int size = body.size();
         for (int i = 0; i < size; i++) {
-            if(!allowSameTargetMap){
-                ArrayList<Mapping> currentPredicateMapping = map.get((String) body.get(i)[0]);
-                for(int j = 0; j < currentPredicateMapping.size(); j++){
-                    if(!predsMapped.containsKey(currentPredicateMapping.get(j).getTargetPredicate())){
-                        mapped = currentPredicateMapping.get(j);
-                        predsMapped.put(mapped.getTargetPredicate(), new Mapping(mapped.getTargetPredicate(), mapped.getTargetArguments()));
-                        break;
+            mapped = null;
+            ArrayList<Mapping> currentPredicateMapping = map.get((String) body.get(i)[0]);
+            if(currentPredicateMapping != null){
+                if(allowSameTargetMap){
+                    for(int j = 0; j < currentPredicateMapping.size(); j++){
+                        if(!predsMapped.containsKey(currentPredicateMapping.get(j).getTargetPredicate())){
+                            mapped = currentPredicateMapping.get(j);
+                            predsMapped.put(mapped.getTargetPredicate(), new Mapping(mapped.getTargetPredicate(), mapped.getTargetArguments()));
+                            break;
+                        }
                     }
                 }
-            }
-            else {
-                mapped = map.get((String) body.get(i)[0]).get(0);
-            }
-            if(mapped != null){
+                else {
+                    mapped = currentPredicateMapping.get(0);
+                }
                 vars = new ArrayList<String>(Arrays.asList((String[])body.get(i)[1]));
                 toMap = mapped.getTargetArguments();
                 args = transferVariables(vars, toMap);
@@ -136,5 +138,13 @@ public class Transfer {
             vars.add(Character.toString((char)(i+65)));
         }
         return vars;
+    }
+
+    public String getTargetHead() {
+        return targetHead;
+    }
+
+    public void setTargetHead(String targetHead) {
+        this.targetHead = targetHead;
     }
 }

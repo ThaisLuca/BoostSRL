@@ -750,11 +750,11 @@ public class ILPouterLoop implements GleanerFileNameProvider {
 
 								//Get body predicates
 								ArrayList<Object[]> body = refineFileVal.getRefineNode(tree).getPredicates();
-								if(transferFileVal != null){
+								if(transferFileVal != null && body.size() > 0){
 									do {
 										body = transferFileVal.transferBody(body);
 										newNode = generateNodeFromBody(body, dict, stringHandler, newNode);
-									} while (refineFileVal.containsRefineNode(tree));
+									} while (refineFileVal.containsRefineNode(tree) && body.size() > 0);
 								} else {
 									newNode = generateNodeFromBody(body, dict, stringHandler, newNode);
 								}
