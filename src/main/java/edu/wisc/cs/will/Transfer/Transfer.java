@@ -82,8 +82,8 @@ public class Transfer {
         String predicate = (String) head[0];
         ArrayList<String> vars = new ArrayList<String>(Arrays.asList((String[])head[1]));
         ArrayList<String> toMap = map.get(predicate).get(0).getTargetArguments();
-        ArrayList<String> args = transferVariables(vars, toMap);
-        return new Object[] {targetHead, args.toArray(new String[args.size()])};
+        //ArrayList<String> args = transferVariables(vars, toMap);
+        return new Object[] {targetHead, toMap.toArray(new String[toMap.size()])};
     }
 
     public ArrayList<Object[]> transferBody(ArrayList<Object[]> body) {
@@ -111,7 +111,8 @@ public class Transfer {
                 }
                 vars = new ArrayList<String>(Arrays.asList((String[])body.get(i)[1]));
                 toMap = mapped.getTargetArguments();
-                args = transferVariables(vars, toMap);
+                //args = transferVariables(vars, toMap);
+                args = toMap;
                 transferredBody.add(new Object[] {mapped.getTargetPredicate(), args.toArray(new String[args.size()])});
             }
         }
@@ -127,7 +128,7 @@ public class Transfer {
             read.put(fromMap.get(i), variables.get(i));
         }
         for (int i=0; i < toMap.size(); i++) {
-            ret.add(read.get(toMap.get(i)));
+            ret.add(read.get(fromMap.get(i)));
         }
         return ret;
     }
