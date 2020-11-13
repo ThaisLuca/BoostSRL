@@ -23,24 +23,19 @@ public class Transfer {
     boolean searchArgPermutation = true;
     boolean searchEmpty = true;
     boolean allowSameTargetMap = true;
-    HashMap<String, ArrayList<Mapping>> allMaps = null; //Keeps mapping by similarity.
     HashMap<String, Mapping> predsMapped = null;  //If allowSameTargetMap = true, keep the source predicates already mapped to a source.
-    HashMap<String, ArrayList<String>> sourceArgs = null; //Keeps all source arguments to transfer variables.
-    ArrayList<String> targetsMapped = null; //If allowSameTargetMap = true, keeps all targets already mapped to a source.
     String targetHead = null;
 
     public Transfer() {
-        allMaps = new HashMap<>();
         predsMapped = new HashMap<>();
-        targetsMapped = new ArrayList<>();
-        sourceArgs = new HashMap<>();
     }
 
     public void readLine(String line) {
         String str = line.replaceAll("\\s+", "");
         Pattern paramPattern = Pattern.compile("^setParam:(\\w*)=(\\w*)\\.$");
         //Pattern.compile("^(source|target):(\\w*)\\(([\\w,]*)\\)\\.$");
-        Pattern predPattern = Pattern.compile("^(\\w+\\([\\w,]+\\)): *((?:[\\w ]+\\([\\w,]+\\),*)+)$");
+        //Pattern predPattern = Pattern.compile("^(\\w+\\([\\w,]+\\)): *((?:[\\w ]+\\([\\w,]+\\),*)+)$");
+        Pattern predPattern = Pattern.compile("^(\\w+\\([\\w,]+\\)):(\\w+\\([\\w,]+\\))$");
         Pattern mapPattern = Pattern.compile("^setMap:(\\w+\\([\\w,]+\\)),(\\w+\\([\\w,]+\\))");
         Matcher paramMatcher = paramPattern.matcher(str);
         Matcher predMatcher = predPattern.matcher(str);
@@ -56,20 +51,8 @@ public class Transfer {
                 allowSameTargetMap = Boolean.parseBoolean(paramMatcher.group(2));
             }
         } else if (predMatcher.find()) {
-            Pattern argsPattern = Pattern.compile("(\\w+)\\((.*?)\\)"); //Get the relation name and its literals
-            Matcher argstMatcher = null;
-            List<String> allPreds = Arrays.asList(predMatcher.group(2).split(",(?![^()]*\\))"));
-            ArrayList<Mapping> predsMap = new ArrayList<Mapping>();
-            for(int i = 0; i < allPreds.size(); i++){
-                String currentTarget = allPreds.get(i);
-                argstMatcher = argsPattern.matcher(currentTarget);
-                if(argstMatcher.find()) {
-                    predsMap.add(new Mapping(argstMatcher.group(1), generateVariables(Arrays.asList(argstMatcher.group(2).split(",")).size())));
-                }
-            }
-            String srcPred = predMatcher.group(1);
-            allMaps.put(srcPred.replaceAll("\\(.*\\)", ""), predsMap);
-            sourceArgs.put(srcPred.replaceAll("\\(.*\\)", ""), new ArrayList<String>(Arrays.asList(srcPred.split("[\\(\\)]")[1].split(","))));
+            predsMapped.put(predMatcher.group(1).replaceAll("\\(.*\\)", ""), new Mapping(predMatcher.group(2).replaceAll("\\(.*\\)", ""), generateVariables(Arrays.asList(predMatcher.group(2).split("[\\(\\)]")[1].split(",")).size())));
+
         } else if (mapMatcher.find()) {
             String srcPred = mapMatcher.group(1);
             String tarPred = mapMatcher.group(2);
@@ -82,11 +65,9 @@ public class Transfer {
             }
             srcPred = srcPred.replaceAll("\\(.*\\)", "");
             tarPred = tarPred.replaceAll("\\(.*\\)", "");
-            allMaps.put(srcPred, new ArrayList<Mapping>(Arrays.asList(new Mapping(tarPred, tarArgs))));
+            predsMapped.put(srcPred, new Mapping(tarPred, tarArgs));
             if (targetHead == null) {
                 predsMapped.put(srcPred, new Mapping(tarPred, tarArgs));
-                targetsMapped.add(tarPred);
-                sourceArgs.put(srcPred, srcArgs);
                 setTargetHead(tarPred);
             }
         } else if(!str.startsWith("//") && !str.isEmpty()) {
@@ -108,30 +89,11 @@ public class Transfer {
         ArrayList<String> vars;
         ArrayList<String> toMap;
         ArrayList<String> args;
-        Mapping mapped;
+        Mapping mapped = null;
         int size = body.size();
         for (int i = 0; i < size; i++) {
-            mapped = null;
+            mapped = predsMapped.get(body.get(i)[0]);
 
-            ArrayList<Mapping> currentPredicateMapping = allMaps.get(body.get(i)[0]);
-            if(!allowSameTargetMap){
-                mapped = currentPredicateMapping.get(0);
-            } else {
-                //If the predicate is already mapped, gets the legal mapping from mappings
-                if(predsMapped.containsKey(body.get(i)[0])){
-                    mapped = predsMapped.get(body.get(i)[0]);
-                } else {
-                    //Finds a legal mapping for the current predicate
-                    for (int j = 0; j < currentPredicateMapping.size(); j++) {
-                        if (!targetsMapped.contains(currentPredicateMapping.get(j).getTargetPredicate())) {
-                            mapped = currentPredicateMapping.get(j);
-                            predsMapped.put((String) body.get(i)[0], new Mapping(mapped.getTargetPredicate(), mapped.getTargetArguments()));
-                            targetsMapped.add(mapped.getTargetPredicate());
-                            break;
-                        }
-                    }
-                }
-            }
             if (mapped != null) {
                 vars = new ArrayList<>(Arrays.asList((String[])body.get(i)[1]));
                 toMap = mapped.getTargetArguments();
