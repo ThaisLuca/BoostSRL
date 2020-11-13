@@ -702,10 +702,18 @@ public class ILPouterLoop implements GleanerFileNameProvider {
 
 					//Changed by Thais Luca
 					if((refineFileVal != null && refineFileVal.containsRefineNode(tree)) || (bestNode != null && bestNode != savedBestNode)){ // Also need to check to make sure we didn't simply return the previous root when doing tree-structured learning.
+						boolean leftChildren = false;
+						boolean rightChildren = false;
+						boolean leftBranch = false;
+						boolean rightBranch = false;
 						if(refineFileVal != null){
-							HashMap<String, Term> dict = new HashMap<String, Term>();
+							HashMap<String, Term> dict = new HashMap<>();
 							HandleFOPCstrings stringHandler = innerLoopTask.getStringHandler();
 							if(refineFileVal.containsRefineNode(tree)){
+								leftBranch = refineFileVal.getRefineNode(tree).getLeftBranch();
+								rightBranch = refineFileVal.getRefineNode(tree).getRightBranch();
+								leftChildren = refineFileVal.containsRefineNode(trueTree) || !leftBranch;
+								rightChildren = refineFileVal.containsRefineNode(falseTree) || !rightBranch;
 								SingleClauseNode newNode = null;
 								if(tree.length == 0){
 									Object[] target = refineFileVal.getRefineNode(tree).getTargetPredicate();
@@ -715,8 +723,8 @@ public class ILPouterLoop implements GleanerFileNameProvider {
 										target = transferFileVal.transferHead(target);
 									}
 
-									List<Type> typesPresent = new ArrayList<Type>(4);
-									Map<Type,List<Term>> typesMap   = new HashMap<Type,List<Term>>(4); // Collect the existing constants and variables that go with each type.
+									List<Type> typesPresent = new ArrayList<>(4);
+									Map<Type,List<Term>> typesMap   = new HashMap<>(4); // Collect the existing constants and variables that go with each type.
 									for (ArgSpec spec : innerLoopTask.targetArgSpecs.get(0)){
 										Type type = spec.typeSpec.isaType;
 
@@ -725,14 +733,14 @@ public class ILPouterLoop implements GleanerFileNameProvider {
 											terms.add(spec.arg);
 											typesMap.put(type, terms);
 										} else {
-											List<Term> termsNew = new ArrayList<Term>(1);
+											List<Term> termsNew = new ArrayList<>(1);
 											termsNew.add(spec.arg);
 											typesMap.put(type, termsNew);
 											typesPresent.add(type);
 										}
 									}
-									ArrayList<Term> arguments = new ArrayList<Term>();
-									for(int i=0; i < innerLoopTask.variablesInTargets.get(0).size(); i++){
+									ArrayList<Term> arguments = new ArrayList<>();
+									for(int i=0; i < innerLoopTask.variablesInTargets.get(0).size(); i++) {
 										Term term = innerLoopTask.variablesInTargets.get(0).get(i);
 										String[] targetArgs = (String[]) target[1];
 										dict.put(targetArgs[i], term);
@@ -751,14 +759,29 @@ public class ILPouterLoop implements GleanerFileNameProvider {
 								//Get body predicates
 								ArrayList<Object[]> body = refineFileVal.getRefineNode(tree).getPredicates();
 								if(transferFileVal != null){
-									//do {
-									body = transferFileVal.transferBody(body);
-									if(body.size() == 0){
-										newNode = null;
-									} else {
-										newNode = generateNodeFromBody(body, dict, stringHandler, newNode);
-									}
-									//} while (refineFileVal.containsRefineNode(tree));
+									boolean repeat;
+									do {
+										body = refineFileVal.getRefineNode(tree).getPredicates();
+										body = transferFileVal.transferBody(body);
+										repeat = false;
+										// Mapped to empty node, deletes and promotes child
+										if (body.size() == 0)
+										{
+											transferFileVal.promoteNode(refineFileVal.getRefineNode(tree));
+											if (refineFileVal.containsRefineNode(tree)){
+												leftBranch = refineFileVal.getRefineNode(tree).getLeftBranch();
+												rightBranch = refineFileVal.getRefineNode(tree).getRightBranch();
+												leftChildren = refineFileVal.containsRefineNode(trueTree) || !leftBranch;
+												rightChildren = refineFileVal.containsRefineNode(falseTree) || !rightBranch;
+												repeat = true;
+											}else{
+												// force leaf
+												newNode = null;
+											}
+										}else{
+											newNode = generateNodeFromBody(body, dict, stringHandler, newNode);
+										}
+									} while (repeat && refineFileVal.containsRefineNode(tree));
 								} else {
 									newNode = generateNodeFromBody(body, dict, stringHandler, newNode);
 								}
@@ -963,10 +986,10 @@ public class ILPouterLoop implements GleanerFileNameProvider {
 								// Since getLength() includes the head, we see if current length EXCEEDS the maxTreeDepthInLiterals.
 								// Since 'maxTreeDepthInLiterals' includes bridgers, count them as well.
 								if (atMaxDepth) { Utils.println("%   Creating a TRUE-branch and FALSE-branch leaves because level = "  + interiorNode.getLevel() + " >= " + maxTreeDepthInInteriorNodes); }
-								if (atMaxDepth || goodEnoughFitTrueBranch ||
+								if (atMaxDepth || (leftChildren && (!leftBranch || wgtedCountTrueBranchPos == 0)) || (!leftChildren && (atMaxDepth || goodEnoughFitTrueBranch ||
 										newClause.getLength()   >  maxTreeDepthInLiterals || // We use '>' here since we don't count the head literal in depth.
 										wgtedCountTrueBranchPos <  2.1 * innerLoopTask.getMinPosCoverage() ||
-										wgtedCountTrueBranchPos <  outerLoopState.getOverallMinPosWeight()) {
+										wgtedCountTrueBranchPos <  outerLoopState.getOverallMinPosWeight()))) {
 
 
 									if (!atMaxDepth && LearnOneClause.debugLevel > -10) {
@@ -1022,10 +1045,10 @@ public class ILPouterLoop implements GleanerFileNameProvider {
 									meanVecFalse = bestNode.meanVectorIfFalse();
 								}
 								// No need to check max clause length (maxTreeDepthInLiterals) since that should have been checked at parent's call (since no literals added for FALSE branch).
-								if (atMaxDepth || goodEnoughFitFalseBranch ||
+								if (atMaxDepth || (rightChildren && (!rightBranch || wgtedCountFalseBranchPos == 0)) || (!rightChildren && (atMaxDepth || goodEnoughFitFalseBranch ||
 										//	newClause.getLength()   >  maxTreeDepthInLiterals  ||
 										wgtedCountFalseBranchPos <  2.1 * innerLoopTask.getMinPosCoverage() ||
-										wgtedCountFalseBranchPos <  outerLoopState.getOverallMinPosWeight()) {
+										wgtedCountFalseBranchPos <  outerLoopState.getOverallMinPosWeight()))) {
 
 									Term leaf = null;
 									if (learnMultiValPredicates) {
@@ -1036,15 +1059,10 @@ public class ILPouterLoop implements GleanerFileNameProvider {
 
 
 									if (!atMaxDepth && LearnOneClause.debugLevel > -10) {
-										if (interiorNode.getLevel() >= maxTreeDepthInInteriorNodes) {
-											Utils.println("%   Creating a FALSE-branch leaf because level = " + interiorNode.getLevel() + " > " + maxTreeDepthInInteriorNodes);
-										} else if (wgtedCountFalseBranchPos < 2.1 * innerLoopTask.getMinPosCoverage()) {
-											Utils.println("%   Creating a FALSE-branch leaf because wgtedCountFalseBranchPos = " + Utils.truncate(wgtedCountFalseBranchPos, 1) + " < 2.1 * minPosCov = " + Utils.truncate(2.1 * innerLoopTask.getMinPosCoverage(), 1));
-										} else if (wgtedCountFalseBranchPos < outerLoopState.getOverallMinPosWeight()) {
-											Utils.println("%   Creating a FALSE-branch leaf because wgtedCountFalseBranchPos = " + Utils.truncate(wgtedCountFalseBranchPos, 1) + " < minPosWgt = " + Utils.truncate(outerLoopState.getOverallMinPosWeight(), 1));
-										} else if (goodEnoughFitFalseBranch) {
-											Utils.println("%   Creating a FALSE-branch leaf because good enough fit since score < " + outerLoopState.maxAcceptableNodeScoreToStop);
-										}
+										if      (interiorNode.getLevel() >= maxTreeDepthInInteriorNodes) { Utils.println("%   Creating a FALSE-branch leaf because level = "  + interiorNode.getLevel() + " > " + maxTreeDepthInInteriorNodes); }
+										else if (wgtedCountFalseBranchPos <  2.1 * innerLoopTask.getMinPosCoverage()) { Utils.println("%   Creating a FALSE-branch leaf because wgtedCountFalseBranchPos = "  + Utils.truncate(wgtedCountFalseBranchPos, 1) + " < 2.1 * minPosCov = " + Utils.truncate(2.1 * innerLoopTask.getMinPosCoverage(), 1)); }
+										else if (wgtedCountFalseBranchPos <  outerLoopState.getOverallMinPosWeight()) { Utils.println("%   Creating a FALSE-branch leaf because wgtedCountFalseBranchPos = "  + Utils.truncate(wgtedCountFalseBranchPos, 1) + " < minPosWgt = "       + Utils.truncate(outerLoopState.getOverallMinPosWeight(), 1)); }
+										else if (goodEnoughFitFalseBranch) 									   		  { Utils.println("%   Creating a FALSE-branch leaf because good enough fit since score < " +  outerLoopState.maxAcceptableNodeScoreToStop); }
 									}
 
 									falseBranch = new TreeStructuredTheoryLeaf(wgtedCountFalseBranchPos, wgtedCountFalseBranchNeg, bestNode.getVarianceFalseBranch(), leaf, Example.makeLabel(falseBranchPosExamples));
