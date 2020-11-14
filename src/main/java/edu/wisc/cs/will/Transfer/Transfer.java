@@ -67,7 +67,6 @@ public class Transfer {
             tarPred = tarPred.replaceAll("\\(.*\\)", "");
             predsMapped.put(srcPred, new Mapping(tarPred, tarArgs));
             if (targetHead == null) {
-                predsMapped.put(srcPred, new Mapping(tarPred, tarArgs));
                 setTargetHead(tarPred);
             }
         } else if(!str.startsWith("//") && !str.isEmpty()) {
@@ -78,7 +77,7 @@ public class Transfer {
 
     public Object[] transferHead(Object[] head) {
         String predicate = (String) head[0];
-        ArrayList<String> vars = new ArrayList<String>(Arrays.asList((String[])head[1]));
+        ArrayList<String> vars = new ArrayList<>(Arrays.asList((String[])head[1]));
         ArrayList<String> toMap = predsMapped.get(predicate).getTargetArguments();
         ArrayList<String> args = transferVariables(vars, toMap);
         return new Object[] {targetHead, args.toArray(new String[args.size()])};
