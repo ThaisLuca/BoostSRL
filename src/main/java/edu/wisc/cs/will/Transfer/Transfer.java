@@ -35,7 +35,7 @@ public class Transfer {
         Pattern paramPattern = Pattern.compile("^setParam:(\\w*)=(\\w*)\\.$");
         //Pattern.compile("^(source|target):(\\w*)\\(([\\w,]*)\\)\\.$");
         //Pattern predPattern = Pattern.compile("^(\\w+\\([\\w,]+\\)): *((?:[\\w ]+\\([\\w,]+\\),*)+)$");
-        Pattern predPattern = Pattern.compile("^(\\w+\\([\\w,]+\\)):(\\w+\\([\\w,]+\\))$");
+        Pattern predPattern = Pattern.compile("^(\\w+\\([\\w,]+\\)):(\\w+\\([\\w,]+\\))*$");
         Pattern mapPattern = Pattern.compile("^setMap:(\\w+\\([\\w,]+\\)),(\\w+\\([\\w,]+\\))");
         Matcher paramMatcher = paramPattern.matcher(str);
         Matcher predMatcher = predPattern.matcher(str);
@@ -51,7 +51,10 @@ public class Transfer {
                 allowSameTargetMap = Boolean.parseBoolean(paramMatcher.group(2));
             }
         } else if (predMatcher.find()) {
-            predsMapped.put(predMatcher.group(1).replaceAll("\\(.*\\)", ""), new Mapping(predMatcher.group(2).replaceAll("\\(.*\\)", ""), generateVariables(Arrays.asList(predMatcher.group(2).split("[\\(\\)]")[1].split(",")).size())));
+            //Checks if predicate was mapped to null. Only keeps predicates not mapped to null.
+            if(predMatcher.group(2) != null){
+                predsMapped.put(predMatcher.group(1).replaceAll("\\(.*\\)", ""), new Mapping(predMatcher.group(2).replaceAll("\\(.*\\)", ""), generateVariables(Arrays.asList(predMatcher.group(2).split("[\\(\\)]")[1].split(",")).size())));
+            }
 
         } else if (mapMatcher.find()) {
             String srcPred = mapMatcher.group(1);
