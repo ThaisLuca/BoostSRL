@@ -4,11 +4,9 @@ package edu.wisc.cs.will.Transfer;
 import edu.wisc.cs.will.Refine.RefineNode;
 import edu.wisc.cs.will.Utils.Utils;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,7 +21,7 @@ public class Transfer {
     boolean searchArgPermutation = true;
     boolean searchEmpty = true;
     boolean allowSameTargetMap = true;
-    HashMap<String, Mapping> predsMapped = null;  //If allowSameTargetMap = true, keep the source predicates already mapped to a source.
+    HashMap<String, Mapping> predsMapped;  //If allowSameTargetMap = true, keep the source predicates already mapped to a source.
     String targetHead = null;
 
     public Transfer() {
@@ -40,7 +38,6 @@ public class Transfer {
         Matcher paramMatcher = paramPattern.matcher(str);
         Matcher predMatcher = predPattern.matcher(str);
         Matcher mapMatcher = mapPattern.matcher(str);
-        String targetHead = null;
 
         if (paramMatcher.find()) {
             if (paramMatcher.group(1).equals("searchArgPermutation")) {
@@ -59,8 +56,8 @@ public class Transfer {
         } else if (mapMatcher.find()) {
             String srcPred = mapMatcher.group(1);
             String tarPred = mapMatcher.group(2);
-            ArrayList<String> srcArgs = new ArrayList<String>(Arrays.asList(srcPred.split("[\\(\\)]")[1].split(",")));
-            ArrayList<String> tarArgs = new ArrayList<String>(Arrays.asList(tarPred.split("[\\(\\)]")[1].split(",")));
+            ArrayList<String> srcArgs = new ArrayList<>(Arrays.asList(srcPred.split("[\\(\\)]")[1].split(",")));
+            ArrayList<String> tarArgs = new ArrayList<>(Arrays.asList(tarPred.split("[\\(\\)]")[1].split(",")));
             if (!compareArgs(srcArgs, generateVariables(srcArgs.size()))) {
                 Utils.println("\nSource predicate '" + srcPred + "' has to respect alphabetic order in its variables.");
                 //Utils.reportStackTrace(e);
@@ -69,9 +66,7 @@ public class Transfer {
             srcPred = srcPred.replaceAll("\\(.*\\)", "");
             tarPred = tarPred.replaceAll("\\(.*\\)", "");
             predsMapped.put(srcPred, new Mapping(tarPred, tarArgs));
-            if (targetHead == null) {
-                setTargetHead(tarPred);
-            }
+            setTargetHead(tarPred);
         } else if(!str.startsWith("//") && !str.isEmpty()) {
             Utils.println("\nEncountered an exception during parsing '" + str + "' of transfer file:");
             Utils.error("Unable to successfully parse transfer file: " + str + ".");
@@ -87,22 +82,22 @@ public class Transfer {
     }
 
     public ArrayList<Object[]> transferBody(ArrayList<Object[]> body) {
-        ArrayList<Object[]> transferredBody = new ArrayList<Object[]>();
+        ArrayList<Object[]> transferredBody = new ArrayList<>();
         ArrayList<String> vars;
         ArrayList<String> toMap;
         ArrayList<String> args;
-        Mapping mapped = null;
-        int size = body.size();
-        for (int i = 0; i < size; i++) {
-            mapped = predsMapped.get(body.get(i)[0]);
+        Mapping mapped;
+        for (Object[] objects : body) {
+            mapped = predsMapped.get(objects[0]);
 
             if (mapped != null) {
-                vars = new ArrayList<>(Arrays.asList((String[])body.get(i)[1]));
+                vars = new ArrayList<>(Arrays.asList((String[]) objects[1]));
                 toMap = mapped.getTargetArguments();
                 args = transferVariables(vars, toMap);
-                transferredBody.add(new Object[] {mapped.getTargetPredicate(), args.toArray(new String[args.size()])});
+                transferredBody.add(new Object[]{mapped.getTargetPredicate(), args.toArray(new String[args.size()])});
             }
         }
+
         return transferredBody;
     }
 
